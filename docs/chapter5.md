@@ -61,7 +61,7 @@ TELL ME MORE ABOUT YOUR FAMILY
 This seems quite impressive; the program is responding reasonably to a variety of inputs and appears to be exhibiting true "understanding."
 But, as Weizenbaum explains, this appearance is an illusion, and the program has finessed the difficult task of understanding by carefully recognizing, transforming, and echoing pieces of the input.
 The procedure is to look for specific patterns, based on a key word or words in the input.
-For example, whenever the program sees the words "alike" or "same," it prints a message asking about similarity, in this case, "`IN WHAT WAY.`" Other patterns are more complicated.
+For example, whenever the program sees the words "alike" or "same," it prints a message asking about similarity, in this case, "`IN WHAT WAY`." Other patterns are more complicated.
 In the next to last exchange, ELIZA first throws away everything after the comma, and then uses a pattern that looks for input of the form "I need X" and transforms it to the output "What would it mean to you if you got X," where X is the phrase "some help" in this case.
 The great advantage of this approach is that the response will make sense for a variety of inputs: "I need a vacation" will elicit "What would it mean to you if you got a vacation." This will work automatically, without having to tell the program the difference between "some help" and "a vacation." The disadvantage is that the program will sometimes make silly responses: "I need this like a hole in the head" will be answered with "What would it mean to you if you got this like a hole in the head." In fact, the program only makes any sense at all if it is receiving input from someone who makes sense-and someone who interprets its answers charitably.
 When given "I need gibble plix zzq," ELIZA would reply "What would it mean to you if you got gibble plix zzq," without any inkling that something is wrong.
@@ -287,7 +287,7 @@ We can now test `pat-match` and see how it works:
 ((?X . VACATION) (T . T))
 ```
 
-The answer is a list of variable bindings in dotted pair notation; each element of the list is a (`*variable . value*`) pair.
+The answer is a list of variable bindings in dotted pair notation; each element of the list is a (`variable . value`) pair.
 The `(T . T)` is a remnant from `no-bindings`.
 It does no real harm, but we can eliminate it by making `extend-bindings` a little more complicated:
 
