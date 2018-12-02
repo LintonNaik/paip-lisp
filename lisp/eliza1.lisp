@@ -8,6 +8,11 @@
 
 ;; New version of pat-match with segment variables
 
+(defconstant fail nil "Indicates pat-match failure")
+
+(defconstant no-bindings '((t . t))
+  "Indicates pat-match success, with no variables.")
+
 (defun variable-p (x)
   "Is x a variable (a symbol beginning with `?')?"
   (and (symbolp x) (equal (elt (symbol-name x) 0) #\?)))
