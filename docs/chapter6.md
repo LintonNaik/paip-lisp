@@ -9,7 +9,7 @@ In [chapters 4](B9780080571157500042.xhtml) and [5](B9780080571157500054.xhtml) 
 Those patterns will be abstracted out to form reusable software tools that will prove helpful in subsequent chapters.
 
 ## 6.1 An Interactive Interpreter Tool
-
+sdfssdfsdfsdfwrwerwre
 The structure of the function `eliza` is a common one.
 It is repeated below:
 
