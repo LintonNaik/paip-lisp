@@ -481,7 +481,7 @@ The first succeeds because `(+  3 4)` is indeed `7`, and the second fails becaus
 ```lisp
 > (pat-match '(?x ?op ?y is ?z (?if (eq1 (?op ?x ?y) ?z))) '(3 + 4 is 7)) => ((?Z . 7) (?Y . 4) (?0P . +) (?X . 3))
 
-> (pat-match  '(?x ?op ?y (?if (?op ?x ?y))) '(3 > 4)) => NIL  
+> (pat-match '(?x ?op ?y (?if (?op ?x ?y))) '(3 > 4)) => NIL
 
 ```
 The syntax we have defined for patterns has two virtues: first, the syntax is very general, so it is easy to extend.
