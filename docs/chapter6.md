@@ -443,23 +443,17 @@ The first successful match is achieved with the first variable, `?x`, matching t
 In the next example, `?x` is first matched against nil and `?y` against (`b c d` ), but that fails, so we try matching `?x` against a segment of length one.
 That fails too, but finally the match succeeds with `?x` matching the two-element segment (`b c`), and `?y` matching (`d`).
 
-| []()           |                                              |
-| ---            | ---                                          |
-| `> (pat-match` | `'(a (?* ?x) (?* ?y) ?x ?y)`                 |
-|                | `'(a b c d (b c) (d))) => ((?Y D) (?X B C))` |
-
+```lisp
+ > (pat-match '(a (?* ?x) (?* ?y) ?x ?y) '(a b c d (b c) (d))) => ((?Y D) (?X B C))
+```
 Given `segment-match`, it is easy to define the function to match one-or-more elements and the function to match zero-or-one element:
 
 ```lisp
-(defun segment-match  + (pattern input bindings)
+(defun segment-match+ (pattern input bindings)
   "Match one or more elements of input."
   (segment-match pattern input bindings 1))
-```
 
-`(defun segment-match?
-(pattern input bindings)`
-
-```lisp
+(defun segment-match? (pattern input bindings)
   "Match zero or one element of input."
   (let ((var (second (first pattern)))
       (pat (rest pattern)))
@@ -484,21 +478,12 @@ This is one of the few cases where it is appropriate to call `eval`: when we wan
 Here are two examples using `?if`.
 The first succeeds because `(+  3 4)` is indeed `7`, and the second fails because `(>  3 4)` is false.
 
-| []()           |                                                 |
-|----------------|-------------------------------------------------|
-| `> (pat-match` | `'(?x ?op ?y is ?z (?if (eq1 (?op ?x ?y) ?z)))` |
-|                | `'(3 + 4 is 7))`                                |
+```lisp
+> (pat-match '(?x ?op ?y is ?z (?if (eq1 (?op ?x ?y) ?z))) '(3 + 4 is 7)) => ((?Z . 7) (?Y . 4) (?0P . +) (?X . 3))
+
+> (pat-match  '(?x ?op ?y (?if (?op ?x ?y))) '(3 > 4)) => NIL  
 
 ```
-((?Z . 7) (?Y . 4) (?0P . +) (?X . 3))
-```
-
-| []()           |                                  |
-|----------------|----------------------------------|
-| `> (pat-match` | `'(?x ?op ?y (?if (?op ?x ?y)))` |
-|                | `'(3 > 4))`                      |
-| `NIL`          |                                  |
-
 The syntax we have defined for patterns has two virtues: first, the syntax is very general, so it is easy to extend.
 Second, the syntax can be easily manipulated by `pat-match`.
 However, there is one drawback: the syntax is a little verbose, and some may find it ugly.
