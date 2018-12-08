@@ -195,8 +195,7 @@ It has to be listed as a segment pattern rather than a single pattern because it
 
 When the description of a problem gets this complicated, it is a good idea to attempt a more formal specification.
 The following table describes a grammar of patterns, using the same grammar rule format described in [chapter 2](B9780080571157500029.xhtml).
-
-|-------------------|------------------------|---------------------------------------------------|
+| []()              |                        |                                                   |
 | *pat*=>           | *var*                  | match any one expression                          |
 |                   | *Constant*             | match just this atom                              |
 |                   | *segment*-*pat*        | match something against a sequence                |
