@@ -537,8 +537,6 @@ Does this make the rules easier to read?
 Informally, show that `pat-match` will always find such a binding, or show a counterexample where it fails to find one.
 
 ## 6.3 A Rule-Based Translator Tool
-{:#s0020}
-{:.h1hd}
 
 As we have defined it, the pattern matcher matches one input against one pattern.
 In `eliza`, we need to match each input against a number of patterns, and then return a result based on the rule that contains the first pattern that matches.
@@ -574,29 +572,30 @@ The default is just to substitute the bindings of the match into the then-part o
 The rule-based translater tool now looks like this:
 
 ```lisp
-(defun rule-based-translator
-      (input rules &key (matcher #'pat-match)
-        (rule-if #'first) (rule-then #'rest) (action #'sublis))
-  "Find the first rule in rules that matches input,
-  and apply the action to that rule."
-  (some
-    #'(lambda (rule)
-        (let ((result (funcall matcher (funcall rule-if rule)
-                input)))
-        (if (not (eq result fail))
-          (funcall action result (funcall rule-then rule)))))
-    rules))
+(defun rule-based-translator 
+	     (input rules &key 
+			    (matcher #'pat-match)
+			    (rule-if #'first) 
+			    (rule-then #'rest) 
+			    (action #'sublis))
+	   "Find the first rule in rules that matches input, and apply the action to that rule."
+	   (some
+	    #'(lambda (rule)
+		(let ((result (funcall matcher (funcall rule-if rule)
+				       input)))
+		  (if (not (eq result fail))
+		      (funcall action result (funcall rule-then rule))))
+	    rules))
+    
 (defun use-eliza-rules (input)
-  "Find some rule with which to transform the input."
-  (rule-based-translator input *eliza-rules*
-    :action #'(lambda (bindings responses)
-          (sublis (switch-viewpoint bindings)
-                (random-elt responses)))))
+	   "Find some rule with which to transform the input."
+	   (rule-based-translator input *eliza-rules*
+				  :action #'(lambda (bindings responses)
+					      (sublis (switch-viewpoint bindings)
+						      (random-elt responses)))))
 ```
 
 ## 6.4 A Set of Searching Tools
-{:#s0025}
-{:.h1hd}
 
 The GPS program can be seen as a problem in *search*.
 In general, a search problem involves exploring from some starting state and investigating neighboring states until a solution is reached.
@@ -636,8 +635,6 @@ Here is a tree:
 ![u06-01](images/chapter6/u06-01.jpg)
 
 ### Searching Trees
-{:#s0035}
-{:.h2hd}
 
 We will call our first searching tool `tree-search`, because it is designed to search state spaces that are in the form of trees.
 It takes four arguments: (1) a list of valid starting states, (2) a predicate to decide if we have reached a goal state, (3) a function to generate the successors of a state, and (4) a function that decides in what order to search.
@@ -652,21 +649,16 @@ Note that `tree-search` itself does not specify any particular searching strateg
 
 ```lisp
 (defun tree-search (states goal-p successors combiner)
-```
-
-`  "Find a state that satisfies goal-p.
-Start with states,`
-
-```lisp
-  and search according to successors and combiner."
-  (dbg :search "~&; ; Search: ~  a" states)
-  (cond ((null states) fail)
-      ((funcall goal-p (first states)) (first states))
-      (t (tree-search
-          (funcall combiner
-                (funcall successors (first states))
-                (rest states))
-          goal-p successors combiner))))
+	   "Find a state that satisfies goal-p. 
+	   Start with states, and search according to successors and combiner."
+	   (dbg :search "~&; ; Search: ~  a" states)
+	   (cond ((null states) fail)
+		 ((funcall goal-p (first states)) (first states))
+		 (t (tree-search
+		     (funcall combiner
+			      (funcall successors (first states))
+			      (rest states))
+		     goal-p successors combiner))))
 ```
 
 The first strategy we will consider is called *depth*-*first search*.
@@ -693,12 +685,12 @@ The `binary-tree` function generates an infinite tree of which the first 15 node
 (defun binary-tree (x) (list (* 2 x) (+  1 (* 2 x))))
 ```
 
-To make it easier to specify a goal, we define the function is as a function that returns a predicate that tests for a particular value.
+To make it easier to specify a goal, we define the function `is` as a function that returns a predicate that tests for a particular value.
 Note that is does not do the test itself.
 Rather, it returns a function that can be called to perform tests:
 
 ```lisp
-(defun is (value) #'(lambda (x) (eq1 x value)))
+(defun is (value) #'(lambda (x) (eql x value)))
 ```
 
 Now we can turn on the debugging output and search through the binary tree, starting at 1, and looking for, say, 12, as the goal state.
@@ -792,8 +784,6 @@ At most, depth-first search considers four at a time; in general it will need to
 ```
 
 ### Guiding the Search
-{:#s0040}
-{:.h2hd}
 
 While breadth-first search is more methodical, neither strategy is able to take advantage of any knowledge about the state space.
 They both search blindly.
@@ -807,7 +797,7 @@ To implement best-first search we need to add one more piece of information: a c
 For the binary tree example, we will use as a cost estimate the numeric difference from the goal.
 So if we are looking for 12, then 12 has cost 0, 8 has cost 4 and 2048 has cost 2036.
 The higher-order function `diff`, shown in the following, returns a cost function that computes the difference from a goal.
-The higher-order function sorter takes a cost function as an argument and returns a combiner function that takes the lists of old and new states, appends them together, and sorts the result based on the cost function, lowest cost first.
+The higher-order function `sorter` takes a cost function as an argument and returns a combiner function that takes the lists of old and new states, appends them together, and sorts the result based on the cost function, lowest cost first.
 (The built-in function `sort` sorts a list according to a comparison function.
 In this case the smaller numbers come first.
 `sort` takes an optional : `key` argument that says how to compute the score for each element.
@@ -817,10 +807,12 @@ Be careful-`sort` is a destructive function.)
 (defun diff (num)
   "Return the function that finds the difference from num."
   #'(lambda (x) (abs (- x num))))
+  
 (defun sorter (cost-fn)
   "Return a combiner function that sorts according to cost-fn."
   #'(lambda (new old)
       (sort (append new old) #'< :key cost-fn)))
+      
 (defun best-first-search (start goal-p successors cost-fn)
   "Search lowest cost states first until goal is reached."
   (tree-search (list start) goal-p successors (sorter cost-fn)))
@@ -842,7 +834,7 @@ Now, using the difference from the goal as the cost function, we can search usin
 
 The more we know about the state space, the better we can search.
 For example, if we know that all successors are greater than the states they come from, then we can use a cost function that gives a very high cost for numbers above the goal.
-The function `price- is - right` is like `diff`, except that it gives a high penalty for going over the goal.[3](#fn0025) Using this cost function leads to a near-optimal search on this example.
+The function `price-is-right` is like `diff`, except that it gives a high penalty for going over the goal.[3](#fn0025) Using this cost function leads to a near-optimal search on this example.
 It makes the "mistake" of searching 7 before 6 (because 7 is closer to 12), but does not waste time searching 14 and 15:
 
 ```lisp
@@ -883,7 +875,7 @@ This is done with `subseq`; (`subseq`*list start end*) returns the sublist that 
           (let ((sorted (funcall (sorter cost-fn) old new)))
             (if (> beam-width (length sorted))
               sorted
-              (subseq sorted0 beam-width))))))
+              (subseq sorted 0 beam-width))))))
 ```
 
 We can successfully search for 12 in the binary tree using a beam width of only 2:
@@ -932,26 +924,23 @@ Another strategy would be for the mountaineer to turn back and try again when th
 As a concrete example of a problem that can be solved by search, consider the task of planning a flight across the North American continent in a small airplane, one whose range is limited to 1000 kilometers.
 Suppose we have a list of selected cities with airports, along with their position in longitude and latitude:
 
-```
+```lisp
 (defstruct (city (:type list)) name long lat)
+
 (defparameter *cities*
+	 '((Atlanta     84.23 33.45)   (Los-Angeles    118.15 34.03   
+	 (Boston        71.05 42.21)   (Memphis        90.03 35.09)   
+	 (Chicago       87.37 41.50)   (New-York       73.58 40.47)   
+	 (Denver        105.00 39.45)  (Oklahoma-City  97.28 35.26)   
+	 (Eugene        123.05 44.03)  (Pittsburgh     79.57 40.27)   
+	 (Flagstaff     111.41 35.13)  (Quebec         71.11 46.49)   
+	 (Grand-Jet     108.37 39.05)  (Reno           119.49 39.30)  
+	 (Houston       105.00 34.00)  (San-Francisco  122.26 37.47)  
+	 (Indianapolis  86.10 39.46)   (Tampa          82.27 27.57)   
+	 (Jacksonville  81.40 30.22)   (Victoria       123.21 48.25)  
+	 (Kansas-City   94.35 39.06)   (Wilmington     77.57 34.14)))
+
 ```
-
-| []()            |                 |                  |                  |
-|-----------------|-----------------|------------------|------------------|
-| `'((Atlanta`    | `84.23 33.45)`  | `(Los-Angeles`   | `118.15 34.03`   |
-| `(Boston`       | `71.05 42.21)`  | `(Memphis`       | `90.03 35.09)`   |
-| `(Chicago`      | `87.37 41.50)`  | `(New-York`      | `73.58 40.47)`   |
-| `(Denver`       | `105.00 39.45)` | `(Oklahoma-City` | `97.28 35.26)`   |
-| `(Eugene`       | `123.05 44.03)` | `(Pittsburgh`    | `79.57 40.27)`   |
-| `(Flagstaff`    | `111.41 35.13)` | `(Quebec`        | `71.11 46.49)`   |
-| `(Grand-Jet`    | `108.37 39.05)` | `(Reno`          | `119.49 39.30)`  |
-| `(Houston`      | `105.00 34.00)` | `(San-Francisco` | `122.26 37.47)`  |
-| `(Indianapolis` | `86.10 39.46)`  | `(Tampa`         | `82.27 27.57)`   |
-| `(Jacksonville` | `81.40 30.22)`  | `(Victoria`      | `123.21 48.25)`  |
-| `(Kansas-City`  | `94.35 39.06)`  | `(Wilmington`    | `77.57 34.14)))` |
-
-![t0030](images/B9780080571157500066/t0030.png)
 
 This example introduces a new option to `defstruct`.
 Instead of just giving the name of the structure, it is also possible to use:
@@ -960,12 +949,12 @@ Instead of just giving the name of the structure, it is also possible to use:
 (defstruct *(structure*-*name (option value*)...) *"optional doc" slot*...)
 ```
 
-For city, the option : type is specified as `list`.
+For city, the option `:type` is specified as `list`.
 This means that cities will be implemented as lists of three elements, as they are in the initial value for `*cities*`.
 
 The cities are shown on the map in [figure  6.1](#f0010), which has connections between all cities within the 1000 kilometer range of each other.[5](#fn0035) This map was drawn with the help of `air-distance`, a function that returns the distance in kilometers between two cities "as the crow flies." It will be defined later.
 Two other useful functions are `neighbors`, which finds all the cities within 1000 kilometers, and `city`, which maps from a name to a city.
-The former uses `find-a11-if`, which was defined on [page 101](B9780080571157500030.xhtml#p101) as a synonym for `remove-if-not`.
+The former uses `find-all-if`, which was defined on [page 101](B9780080571157500030.xhtml#p101) as a synonym for `remove-if-not`.
 
 
 | []()                                  |
@@ -980,6 +969,7 @@ The former uses `find-a11-if`, which was defined on [page 101](B9780080571157500
           (and (not (eq c city))
               (< (air-distance c city) 1000.0)))
         *cities*))
+	
 (defun city (name)
   "Find the city with this name."
   (assoc name *cities*))
