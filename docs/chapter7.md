@@ -1,7 +1,6 @@
 # Chapter 7
 ## STUDENT
-!!!(span) {:.smallcaps}
-: Solving Algebra Word Problems
+Solving Algebra Word Problems
 
 > *[This] is an example par excellence* of the power of using meaning to solve linguistic problems
 
@@ -9,54 +8,52 @@
 
 > MIT computer scientist
 
-STUDENT !!!(span) {:.smallcaps} was another early language understanding program, written by Daniel Bobrow as his Ph.D.
+STUDENT was another early language understanding program, written by Daniel Bobrow as his Ph.D.
 research project in 1964.
 It was designed to read and solve the kind of word problems found in high school algebra books.
 An example is:
 
 > If the number of customers Tom gets is twice the square of 20% of the number of advertisements he runs, and the number of advertisements is 45, then what is the number of customers Tom gets?
 
-STUDENT !!!(span) {:.smallcaps} could correctly reply that the number of customers is 162.
-To do this, STUDENT !!!(span) {:.smallcaps} must be far more sophisticated than ELIZA !!!(span) {:.smallcaps} ; it must process and "understand" a great deal of the input, rather than just concentrate on a few key words.
+STUDENT could correctly reply that the number of customers is 162.
+To do this, STUDENT must be far more sophisticated than ELIZA; it must process and "understand" a great deal of the input, rather than just concentrate on a few key words.
 And it must compute a response, rather than just fill in blanks.
-However, we shall see that the STUDENT !!!(span) {:.smallcaps} program uses little more than the pattern-matching techniques of ELIZA !!!(span) {:.smallcaps} to translate the input into a set of algebraic equations.
+However, we shall see that the STUDENT program uses little more than the pattern-matching techniques of ELIZA to translate the input into a set of algebraic equations.
 From there, it must know enough algebra to solve the equations, but that is not very difficult.
 
-The version of STUDENT !!!(span) {:.smallcaps} we develop here is nearly a full implementation of the original.
+The version of STUDENT we develop here is nearly a full implementation of the original.
 However, remember that while the original was state-of-the-art as of 1964, AI has made some progress in a quarter century, as subsequent chapters will attempt to show.
 
-## 7.1 Translating English into Equations
-{:#s0010}
-{:.h1hd}
+## 7.1 Translating English into Equations 
 
-The description of STUDENT !!!(span) {:.smallcaps} is:
+The description of STUDENT is:
 
 1.  Break the input into phrases that will represent equations.
-!!!(p) {:.numlist}
+ 
 
 2.  Break each phrase into a pair of phrases on either side of the  =  sign.
-!!!(p) {:.numlist}
+ 
 
 3.  Break these phrases down further into sums and products, and so on, until finally we bottom out with numbers and variables.
 (By "variable" here, I mean "mathematical variable," which is distinct from the idea of a "pattern-matching variable" as used in `pat-match` in [chapter 6](B9780080571157500066.xhtml)).
-!!!(p) {:.numlist}
+ 
 
 4.  Translate each English phrase into a mathematical expression.
-We use the idea of a rule-based translator as developed for ELIZA !!!(span) {:.smallcaps} .
-!!!(p) {:.numlist}
+We use the idea of a rule-based translator as developed for ELIZA .
+ 
 
 5.  Solve the resulting mathematical equations, coming up with a value for each unknown variable.
-!!!(p) {:.numlist}
+ 
 
 6.  Print the values of all the variables.
-!!!(p) {:.numlist}
+ 
 
-For example, we might have a pattern of the form (`If ?x then ?y`), with an associated response that says that `?x` and `?y` will each be equations or lists of equations.
-Applying the pattern to the input above, `?y` would have the value (`what is the number of customers Tomgets`).
-Another pattern of the form (`?x is ?y`) could have a response corresponding to an equation where `?x` and `?y` are the two sides of the equation.
-We could then make up a mathematical variable for (`what`) and another for (`the number of customers Tom gets`).
+For example, we might have a pattern of the form `(If ?x then ?y)`, with an associated response that says that `?x` and `?y` will each be equations or lists of equations.
+Applying the pattern to the input above, `?y` would have the value `(what is the number of customers Tom gets)`.
+Another pattern of the form `(?x is ?y)` could have a response corresponding to an equation where `?x` and `?y` are the two sides of the equation.
+We could then make up a mathematical variable for `(what)` and another for `(the number of customers Tom gets)`.
 We would recognize this later phrase as a variable because there are no patterns to break it down further.
-In contrast, the phrase (`twice the square of 20 per cent of the number of advertisements he runs`) could match a pattern of the form (`twice ?x`) and transform to `(* 2 (the square of 20 per cent of the number of advertisements he runs)),` and by further applying patterns of the form (`the square of ?x`) and (`?x per cent of ?y`) we could arrive at a final response of `(* 2 (expt (* (/ 20 100) n) 2))`, where `n` is the variable generated by (`the number of advertisements he runs`).
+In contrast, the phrase `(twice the square of 20 percent of the number of advertisements he runs)` could match a pattern of the form `(twice ?x)` and transform to `(* 2 (the square of 20 percent of the number of advertisements he runs)),` and by further applying patterns of the form `(the square of ?x)` and `(?x percent of ?y)` we could arrive at a final response of `(* 2 (expt (* (/ 20 100) n) 2))`, where `n` is the variable generated by `(the number of advertisements he runs)`.
 
 Thus, we need to represent variables, expressions, equations, and sets of equations.
 The easiest thing to do is to use something we know: represent them just as Lisp itself does.
@@ -65,69 +62,64 @@ With that in mind, we can define a list of pattern-response rules corresponding 
 The structure definition for a rule is repeated here, and the structure `exp`, an expression, is added.
 `lhs` and `rhs` stand for left-and right-hand side, respectively.
 Note that the constructor `mkexp` is defined as a constructor that builds expressions without taking keyword arguments.
-In general, the notation (`:constructor`*fn args*) creates a constructor function with the given name and argument list.[1](#fn0015)
+In general, the notation `(:constructor`*fn args*) creates a constructor function with the given name and argument list.[1](#fn0015)
 
 ```lisp
 (defstruct (rule (:type list)) pattern response)
+
 (defstruct (exp (:type list)
-```
-
-                        `(:constructor mkexp (lhs op rhs)))`
-
-      `op lhs rhs)`
-
-```lisp
+			(:constructor mkexp (lhs op rhs)))
+	op lhs rhs)
+	
 (defun exp-p (x) (consp x))
+
 (defun exp-args (x) (rest x))
 ```
 
-We ignored commas and periods in ELIZA !!!(span) {:.smallcaps} , but they are crucial for STUDENT !!!(span) {:.smallcaps} , so we must make allowances for them.
+We ignored commas and periods in ELIZA , but they are crucial for STUDENT , so we must make allowances for them.
 The problem is that a `","` in Lisp normally can be used only within a backquote construction, and a `"."` normally can be used only as a decimal point or in a dotted pair.
-The special meaning of these characters to the Lisp reader can be escaped either by preceding the character with a backslash (\,) or by surrounding the character by vertical bars (| , |).
+The special meaning of these characters to the Lisp reader can be escaped either by preceding the character with a backslash (\\) or by surrounding the character by vertical bars (| , |).
 
 ```lisp
+
 (pat-match-abbrev '?x* '(?* ?x))
 (pat-match-abbrev '?y* '(?* ?y))
 (defparameter *student-rules* (mapcar #'expand-pat-match-abbrev
-```
+  '(((?x* |.|)                  ?x)
+    ((?x* |.| ?y*)          (?x ?y))
+    ((if ?x* |,| then ?y*)  (?x ?y))
+    ((if ?x* then ?y*)      (?x ?y))
+    ((if ?x* |,| ?y*)       (?x ?y))
+    ((?x* |,| and ?y*)      (?x ?y))
+    ((find ?x* and ?y*)     ((= to-find-1 ?x) (= to-find-2 ?y)))
+    ((find ?x*)             (= to-find ?x))
+    ((?x* equals ?y*)       (= ?x ?y))
+    ((?x* same as ?y*)      (= ?x ?y))
+    ((?x* = ?y*)            (= ?x ?y))
+    ((?x* is equal to ?y*)  (= ?x ?y))
+    ((?x* is ?y*)           (= ?x ?y))
+    ((?x* - ?y*)            (- ?x ?y))
+    ((?x* minus ?y*)        (- ?x ?y))
+    ((difference between ?x* and ?y*)  (- ?y ?x))
+    ((difference ?x* and ?y*)          (- ?y ?x))
+    ((?x* + ?y*)            (+ ?x ?y))
+    ((?x* plus ?y*)         (+ ?x ?y))
+    ((sum ?x* and ?y*)      (+ ?x ?y))
+    ((product ?x* and ?y*)  (* ?x ?y))
+    ((?x* * ?y*)            (* ?x ?y))
+    ((?x* times ?y*)        (* ?x ?y))
+    ((?x* / ?y*)            (/ ?x ?y))
+    ((?x* per ?y*)          (/ ?x ?y))
+    ((?x* divided by ?y*)   (/ ?x ?y))
+    ((half ?x*)             (/ ?x 2))
+    ((one half ?x*)         (/ ?x 2))
+    ((twice ?x*)            (* 2 ?x))
+    ((square ?x*)           (* ?x ?x))
+    ((?x* % less than ?y*)  (* ?y (/ (- 100 ?x) 100)))
+    ((?x* % more than ?y*)  (* ?y (/ (+ 100 ?x) 100)))
+    ((?x* % ?y*)            (* (/ ?x 100) ?y)))))               
 
-| []()                                |                                         |
-|-------------------------------------|-----------------------------------------|
-| `'(((?x* |.|)`                      | `        ?x)`                           |
-| `    ((?x*  |.| ?y*)`               | `(?x ?y))`                              |
-| `    ((if ?x* |,| then ?y*)`        | `(?x ?y))`                              |
-| `    ((if ?x* then ?y*)`            | `(?x ?y))`                              |
-| `    ((if ?x* |,| ?y*)`             | `(?x ?y))`                              |
-| `    ((?x* |,| and ?y*)`            | `(?x ?y))`                              |
-| `    ((find ?x* and ?y*)`           | `((= to-find-1 ?x) (= to-find-2 ?y)))`  |
-| `    ((find ?x*)`                   | `(= to-find ?x))`                       |
-| `    ((?x* equals ?y*)`             | `(= ?x ?y))`                            |
-| `    ((?x* same as ?y*)`            | `(= ?x ?y))`                            |
-| `    ((?x* = ?y*)`                  | `(= ?x ?y))`                            |
-| `    ((?x* is equal to ?y*)`        | `(= ?x ?y))`                            |
-| `    ((?x* is ?y*)`                 | `(= ?x ?y))`                            |
-| `    ((?x* - ?y*)`                  | `(- ?x ?y))`                            |
-| `    ((?x* minus ?y*)`              | `(- ?x ?y))`                            |
-| `((difference between ?x* and ?y*)` | `(- ?y ?x))`                            |
-| `((difference ?x* and ?y*)`         | `(- ?y ?x))`                            |
-| `((?x* + ?y*)`                      | `(+ ?x ?y))`                            |
-| `((?x* plus ?y*)`                   | `(+ ?x ?y))`                            |
-| `((sum ?x* and ?y*)`                | `(+ ?x ?y))`                            |
-| `((product ?x* and ?y*)`            | `(* ?x ?y))`                            |
-| `((?x* * ?y*)`                      | `(* ?x ?y))`                            |
-| `((?x* times ?y*)`                  | `(* ?x ?y))`                            |
-| `((?x* / ?y*)`                      | `(/ ?x ?y))`                            |
-| `((?x* per ?y*)`                    | `(/ ?x ?y))`                            |
-| `((?x* divided by ?y*)`             | `(/ ?x ?y))`                            |
-| `((half ?x*)`                       | `(/ ?x 2))`                             |
-| `((one half ?x*)`                   | `(/ ?x 2))`                             |
-| `((twice ?x*)`                      | `(* 2 ?x))`                             |
-| `((square ?x*)`                     | `(* ?x ?x))`                            |
-| `((?x* % less than ?y*)`            | `(* ?y (/ (- 100 ?x) 100)))`            |
-| `((?x* % more than ?y*)`            | `(* ?y (/ (+ 100 ?x) 100)))`            |
-| `((?x* % ?y*)`                      | `(* (/ ?x 100) ?y)))))`                 |
-
-The main section of STUDENT !!!(span) {:.smallcaps} will search through the list of rules for a response, just as ELIZA !!!(span) {:.smallcaps} did.
+The main section of STUDENT will search through the list of rules for a response, just as ELIZA did.
 The first point of deviation is that before we substitute the values of the `pat-match` variables into the response, we must first recursively translate the value of each variable, using the same list of pattern-response rules.
 The other difference is that once we're done, we don't just print the response; instead we have to solve the set of equations and print the answers.
 The program is summarized in [figure 7.1](#f0010).
@@ -164,10 +156,10 @@ For this example, everything worked out, and the response was a list of two equa
 But if nested patterns are used, the response could be something like `((= a 5) ((= b (+ a 1)) (= c (+ a b))))`, which is not a list of equations.
 The function `create-list-of-equations` transforms a response like this into a proper list of equations.
 The other complication is choosing variable names.
-Given a list of words like (`the number of customers Tom gets`), we want to choose a symbol to represent it.
+Given a list of words like `(the number of customers Tom gets)`, we want to choose a symbol to represent it.
 We will see below that the symbol `customers` is chosen, but that there are other possibilities.
 
-Here is the main function for STUDENT !!!(span) {:.smallcaps} . It first removes words that have no content, then translates the input to one big expression with `translate-to-expression`, and breaks that into separate equations with `create-list-of-equations`.
+Here is the main function for STUDENT . It first removes words that have no content, then translates the input to one big expression with `translate-to-expression`, and breaks that into separate equations with `create-list-of-equations`.
 Finally, the function `solve-equations` does the mathematics and prints the solution.
 
 ```lisp
@@ -213,8 +205,8 @@ Finally, the function `make-variable` creates a variable to represent a list of 
 We do that by first removing all "noise words" from the input, and then taking the first symbol that remains.
 So, for example, "the distance John traveled" and "the distance traveled by John" will both be represented by the same variable, `distance,` which is certainly the right thing to do.
 However, "the distance Mary traveled" will also be represented by the same variable, which is certainly a mistake.
-For (`the number of customers Tom gets`), the variable will be `customers`, since `the, of` and `number` are all noise words.
-This will match (`the customers mentioned above`) and (`the number of customers`), but not (`Tom's customers`).
+For `(the number of customers Tom gets)`, the variable will be `customers`, since `the, of` and `number` are all noise words.
+This will match `(the customers mentioned above)` and `(the number of customers)`, but not `(Tom's customers)`.
 For now, we will accept the first-non-noise-word solution, but note that exercise 7.3 asks for a correction.
 
 ```lisp
@@ -229,11 +221,11 @@ For now, we will accept the first-non-noise-word solution, but note that exercis
 
 ## 7.2 Solving Algebraic Equations
 {:#s0015}
-{:.h1hd}
+ 
 
-The next step is to write the equation-solving section of STUDENT !!!(span) {:.smallcaps} . This is more an exercise in elementary algebra than in AI, but it is a good example of a symbol-manipulation task, and thus an interesting programming problem.
+The next step is to write the equation-solving section of STUDENT . This is more an exercise in elementary algebra than in AI, but it is a good example of a symbol-manipulation task, and thus an interesting programming problem.
 
-The STUDENT !!!(span) {:.smallcaps} program mentioned the function `solve-equations`, passing it one argument, a list of equations to be solved.
+The STUDENT program mentioned the function `solve-equations`, passing it one argument, a list of equations to be solved.
 `solve-equations` prints the list of equations, attempts to solve them using `solve`, and prints the result.
 
 ```lisp
@@ -450,7 +442,7 @@ Now let's tackle the `format` string `"~%~a~{~% ~{ ~  a  ~}~}~*%"*` in `print-eq
 The combination `"~%"` prints a newline, and `"~a"` prints the next argument to `format` that has not been used yet.
 Thus the first four characters of the format string, `"~%~a"`, print a newline followed by the argument `header`.
 The combination `"~{"` treats the corresponding argument as a list, and processes each element according to the specification between the `"~{"` and the next `"~}"`.
-In this case, `equations` is a list of equations, so each one gets printed with a newline (`"~%"`) followed by two spaces, followed by the processing of the equation itself as a list, where each element is printed in the `"~a"` format and preceded by a blank.
+In this case, `equations` is a list of equations, so each one gets printed with a newline `("~%")` followed by two spaces, followed by the processing of the equation itself as a list, where each element is printed in the `"~a"` format and preceded by a blank.
 The `t` given as the first argument to `format` means to print to the standard output; another output stream may be specified there.
 
 One of the annoying minor holes in Lisp is that there is no standard convention on where to print newlines!
@@ -474,7 +466,7 @@ In that case, a newline-before is needed, lest the output appear on the same lin
 
 ## 7.3 Examples
 {:#s0020}
-{:.h1hd}
+ 
 
 Now we move on to examples, taken from Bobrow's thesis.
 In the first example, it is necessary to insert a "then" before the word "what" to get the right answer:
@@ -599,18 +591,18 @@ The equations to be solved are:
 
 However, one could claim that nasty examples with division by zero don't show up in algebra texts.
 
-In summary, STUDENT !!!(span) {:.smallcaps} behaves reasonably well, doing far more than the toy program ELIZA !!!(span) {:.smallcaps} . STUDENT !!!(span) {:.smallcaps} is also quite efficient; on my machine it takes less than one second for each of the prior examples.
+In summary, STUDENT behaves reasonably well, doing far more than the toy program ELIZA . STUDENT is also quite efficient; on my machine it takes less than one second for each of the prior examples.
 However, it could still be extended to have more powerful equation-solving capabilities.
 Its linguistic coverage is another matter.
 While one could add new patterns, such patterns are really just tricks, and don't capture the underlying structure of English sentences.
-That is why the STUDENT !!!(span) {:.smallcaps} approach was abandoned as a research topic.
+That is why the STUDENT approach was abandoned as a research topic.
 
 ## 7.4 History and References
 {:#s0025}
-{:.h1hd}
+ 
 
 Bobrow's Ph.D.
-thesis contains a complete description of STUDENT !!!(span) {:.smallcaps} . It is reprinted in [Minsky 1968](B9780080571157500285.xhtml#bb0845).
+thesis contains a complete description of STUDENT . It is reprinted in [Minsky 1968](B9780080571157500285.xhtml#bb0845).
 Since then, there have been several systems that address the same task, with increased sophistication in both their mathematical and linguistic ability.
 [Wong (1981)](B9780080571157500285.xhtml#bb1420) describes a system that uses its understanding of the problem to get a better linguistic analysis.
 [Sterling et al.
@@ -620,7 +612,7 @@ But that was largely the point: if you know that the language is describing an a
 
 ## 7.5 Exercises
 {:#s0030}
-{:.h1hd}
+ 
 
 **Exercise  7.2 [h]** We said earlier that our program was unable to solve pairs of linear equations, such as:
 
@@ -629,7 +621,7 @@ But that was largely the point: if you know that the language is describing an a
 OVERHEAD = (10 * RUNNING)
 ```
 
-The original STUDENT !!!(span) {:.smallcaps} could solve these equations.
+The original STUDENT could solve these equations.
 Write a routine to do so.
 You may assume there will be only two equations in two unknowns if you wish, or if you are more ambitious, you could solve a system of *n* linear equations with *n* unknowns.
 
@@ -638,12 +630,12 @@ Instead of taking the first word of each equation, create a unique symbol, and a
 In the first pass, each nonequal list of words will be considered a distinct variable.
 If no solution is reached, word lists that share words in common are considered to be the same variable, and the solution is attempted again.
 For example, an input that contains the phrases "the rectangle's width" and "the width of the rectangle" might assign these two phrases the variables `v1` and `v2`.
-If an attempt to solve the problem yields no solutions, the program should realize that `v1` and `v2` have the words "rectangle" and "width" in common, and add the equation (`= v1 v2`) and try again.
+If an attempt to solve the problem yields no solutions, the program should realize that `v1` and `v2` have the words "rectangle" and "width" in common, and add the equation `(= v1 v2)` and try again.
 Since the variables are arbitrary symbols, the printing routine should probably print the phrases associated with each variable rather than the variable itself.
 
-**Exercise  7.4 [h]** The original STUDENT !!!(span) {:.smallcaps} also had a set of "common knowledge" equations that it could use when necessary.
-These were mostly facts about conversion factors, such as (`1 inch = 2.54  cm`).
-Also included were equations like (`distance equal s rate times time`), which could be used to solve problems like "If the distance from Anabru to Champaign is 10 miles and the time it takes Sandy to travel this distance is 2 hours, what is Sandy's rate of speed?" Make changes to incorporate this facility.
+**Exercise  7.4 [h]** The original STUDENT also had a set of "common knowledge" equations that it could use when necessary.
+These were mostly facts about conversion factors, such as `(1 inch = 2.54  cm)`.
+Also included were equations like `(distance equal s rate times time)`, which could be used to solve problems like "If the distance from Anabru to Champaign is 10 miles and the time it takes Sandy to travel this distance is 2 hours, what is Sandy's rate of speed?" Make changes to incorporate this facility.
 It probably only helps in conjunction with a solution to the previous exercise.
 
 **Exercise  7.5 [h]** Change `student` so that it prints values only for those variables that are being asked for in the problem.
@@ -651,7 +643,7 @@ That is, given the problem "X is 3.
 Y is 4.
 How much is X  +  Y ?" it should not print values for X and Y.
 
-**Exercise  7.6 [m]** Try STUDENT !!!(span) {:.smallcaps} on the following examples.
+**Exercise  7.6 [m]** Try STUDENT on the following examples.
 Make sure you handle special characters properly:
 
 (a)  The price of a radio is 69.70 dollars.
@@ -685,21 +677,21 @@ b  =  5.*
 !!!(p) {:.numlist1}
 
 **Exercise  7.7 [h]**`Student's` infix-to-prefix rules account for the priority of operators properly, but they don't handle associativity in the standard fashion.
-For example, (`12 - 6 - 3`) translates to (`- 12 (- 6 3)`) or `9`, when the usual convention is to interpret this as (`- (- 12 6) 3`) or `3`.
+For example, `(12 - 6 - 3)` translates to `(- 12 (- 6 3))` or `9`, when the usual convention is to interpret this as `(- (- 12 6) 3)` or `3`.
 Fix student to handle this convention.
 
-**Exercise  7.8 [d]** Find a mathematically oriented domain that is sufficiently limited so that STUDENT !!!(span) {:.smallcaps} can solve problems in it.
+**Exercise  7.8 [d]** Find a mathematically oriented domain that is sufficiently limited so that STUDENT can solve problems in it.
 The chemistry of solutions (calculating pH concentrations) might be an example.
 Write the necessary `*student-rules*`, and test the resulting program.
 
 **Exercise  7.9 [m]** Analyze the complexity of `one-unknown` and implement a more efficient version.
 
-**Exercise  7.10 [h]** Bobrow's paper on STUDENT !!!(span) {:.smallcaps} (1968) includes an appendix that abstractly characterizes all the problems that his system can solve.
+**Exercise  7.10 [h]** Bobrow's paper on STUDENT (1968) includes an appendix that abstractly characterizes all the problems that his system can solve.
 Generate a similar characterization for this version of the program.
 
 ## 7.6 Answers
 {:#s0035}
-{:.h1hd}
+ 
 
 **Answer 7.1**
 
