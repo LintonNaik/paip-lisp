@@ -187,7 +187,7 @@ The other complication is choosing variable names.
 Given a list of words like `(the number of customers Tom gets)`, we want to choose a symbol to represent it.
 We will see below that the symbol `customers` is chosen, but that there are other possibilities.
 
-Here is the main function for STUDENT . It first removes words that have no content, then translates the input to one big expression with `translate-to-expression`, and breaks that into separate equations with `create-list-of-equations`.
+Here is the main function for STUDENT. It first removes words that have no content, then translates the input to one big expression with `translate-to-expression`, and breaks that into separate equations with `create-list-of-equations`.
 Finally, the function `solve-equations` does the mathematics and prints the solution.
 
 ```lisp
@@ -231,27 +231,26 @@ The function `create-list-of-equations` takes a single expression containing emb
 
 Finally, the function `make-variable` creates a variable to represent a list of words.
 We do that by first removing all "noise words" from the input, and then taking the first symbol that remains.
-So, for example, "the distance John traveled" and "the distance traveled by John" will both be represented by the same variable, `distance,` which is certainly the right thing to do.
+So, for example, "the distance John traveled" and "the distance traveled by John" will both be represented by the same variable, `distance`, which is certainly the right thing to do.
 However, "the distance Mary traveled" will also be represented by the same variable, which is certainly a mistake.
-For `(the number of customers Tom gets)`, the variable will be `customers`, since `the, of` and `number` are all noise words.
+For `(the number of customers Tom gets)`, the variable will be `customers`, since `the`, `of` and `number` are all noise words.
 This will match `(the customers mentioned above)` and `(the number of customers)`, but not `(Tom's customers)`.
 For now, we will accept the first-non-noise-word solution, but note that exercise 7.3 asks for a correction.
 
 ```lisp
-(defun make-variable (words)
+(defun make-variable (words)  
     "Create a variable name based on the given list of words"
     ;; The list of words will already have noise words removed
     (first words))
+	
 (defun noise-word-p (word)
     "Is this a low-content word that can be safely ignored?"
     (member word '(a an the this number of $)))
 ```
 
 ## 7.2 Solving Algebraic Equations
-{:#s0015}
- 
 
-The next step is to write the equation-solving section of STUDENT . This is more an exercise in elementary algebra than in AI, but it is a good example of a symbol-manipulation task, and thus an interesting programming problem.
+The next step is to write the equation-solving section of STUDENT. This is more an exercise in elementary algebra than in AI, but it is a good example of a symbol-manipulation task, and thus an interesting programming problem.
 
 The STUDENT program mentioned the function `solve-equations`, passing it one argument, a list of equations to be solved.
 `solve-equations` prints the list of equations, attempts to solve them using `solve`, and prints the result.
@@ -283,12 +282,7 @@ Since the list of equations is always growing shorter, `solve` must eventually t
 (defun solve (equations known)
     "Solve a system of equations by constraint propagation."
     ;; Try to solve for one equation, and substitute its value into
-```
-
-`    ;; the others.
-If that doesn't work, return what is known.`
-
-```lisp
+	;; the others. If that doesn't work, return what is known.
     (or (some #'(lambda (equation)
                 (let ((x (one-unknown equation)))
                     (when x
@@ -372,7 +366,7 @@ However, we don't have to go to that effort, since the function already exists.
 The data structure exp was carefully selected to be the same structure (lists with prefix functions) used by Lisp itself for its own expressions.
 So Lisp will find the right-hand side to be an acceptable expression, one that could be evaluated if typed in to the top level.
 Lisp evaluates expressions by calling the function `eval`, so we can call `eval` directly and have it return a number.
-The function `solve-arithmetic` returns an equation of the form (=  *var number*).
+The function `solve-arithmetic` returns an equation of the form (=  *var* *number*).
 
 Auxiliary functions for `solve` are shown below.
 Most are straightforward, but I will remark on a few of them.
@@ -385,23 +379,29 @@ Unlike `isolate`, it assumes the expressions will be implemented as lists.
     "Print a list of equations."
     (format t "~%~a~{~% ~  a  ~}~}~%" header
             (mapcar #'prefix->infix equations)))
+			
 (defconstant operators-and-inverses
     '((+ -) (- +) (* /) (/ *) (= =)))
+	
 (defun inverse-op (op)
     (second (assoc op operators-and-inverses)))
+	
 (defun unknown-p (exp)
     (symbolp exp))
+	
 (defun in-exp (x exp)
     "True if x appears anywhere in exp"
     (or (eq x exp)
             (and (exp-p exp)
                     (or (in-exp x (exp-lhs exp)) (in-exp x (exp-rhs exp))))))
+					
 (defun no-unknown (exp)
     "Returns true if there are no unknowns in exp."
     (cond ((unknown-p exp) nil)
               ((atom exp) t)
               ((no-unknown (exp-lhs exp)) (no-unknown (exp-rhs exp)))
               (t nil)))
+			  
 (defun one-unknown (exp)
     "Returns the single unknown in exp, if there is exactly one."
     (cond ((unknown-p exp) exp)
@@ -409,9 +409,11 @@ Unlike `isolate`, it assumes the expressions will be implemented as lists.
               ((no-unknown (exp-lhs exp)) (one-unknown (exp-rhs exp)))
               ((no-unknown (exp-rhs exp)) (one-unknown (exp-lhs exp)))
               (t nil)))
+			  
 (defun commutative-p (op)
     "Is operator commutative?"
-    (member op '(+*=)))
+    (member op '(+ * =)))
+	
 (defun solve-arithmetic (equation)
     "Do the arithmetic for the right-hand side."
     ;; This assumes that the right-hand side is in the right form.
@@ -465,7 +467,7 @@ The solution is:
 NIL
 ```
 
-Now let's tackle the `format` string `"~%~a~{~% ~{ ~  a  ~}~}~*%"*` in `print-equations.` This may look like random gibberish, but there is actually sense behind it.
+Now let's tackle the `format` string `"~%~a~{~% ~{ ~  a  ~}~}~*%"` in `print-equations`. This may look like random gibberish, but there is actually sense behind it.
 `format` processes the string by printing each character, except that `"~"` indicates some special formatting action, depending on the following character.
 The combination `"~%"` prints a newline, and `"~a"` prints the next argument to `format` that has not been used yet.
 Thus the first four characters of the format string, `"~%~a"`, print a newline followed by the argument `header`.
@@ -493,8 +495,6 @@ In that case, a newline-before is needed, lest the output appear on the same lin
 **Exercise  7.1 [m]** Implement `print-equations` using only primitive printing functions such as `terpri` and `princ`, along with explicit loops.
 
 ## 7.3 Examples
-{:#s0020}
- 
 
 Now we move on to examples, taken from Bobrow's thesis.
 In the first example, it is necessary to insert a "then" before the word "what" to get the right answer:
@@ -619,18 +619,16 @@ The equations to be solved are:
 
 However, one could claim that nasty examples with division by zero don't show up in algebra texts.
 
-In summary, STUDENT behaves reasonably well, doing far more than the toy program ELIZA . STUDENT is also quite efficient; on my machine it takes less than one second for each of the prior examples.
+In summary, STUDENT behaves reasonably well, doing far more than the toy program ELIZA. STUDENT is also quite efficient; on my machine it takes less than one second for each of the prior examples.
 However, it could still be extended to have more powerful equation-solving capabilities.
 Its linguistic coverage is another matter.
 While one could add new patterns, such patterns are really just tricks, and don't capture the underlying structure of English sentences.
 That is why the STUDENT approach was abandoned as a research topic.
 
 ## 7.4 History and References
-{:#s0025}
- 
 
 Bobrow's Ph.D.
-thesis contains a complete description of STUDENT . It is reprinted in [Minsky 1968](B9780080571157500285.xhtml#bb0845).
+thesis contains a complete description of STUDENT. It is reprinted in [Minsky 1968](B9780080571157500285.xhtml#bb0845).
 Since then, there have been several systems that address the same task, with increased sophistication in both their mathematical and linguistic ability.
 [Wong (1981)](B9780080571157500285.xhtml#bb1420) describes a system that uses its understanding of the problem to get a better linguistic analysis.
 [Sterling et al.
@@ -639,9 +637,7 @@ Certainly Bobrow's language analysis techniques were not very sophisticated by t
 But that was largely the point: if you know that the language is describing an algebraic problem of a certain type, then you don't need to know very much linguistics to get the right answer most of the time.
 
 ## 7.5 Exercises
-{:#s0030}
  
-
 **Exercise  7.2 [h]** We said earlier that our program was unable to solve pairs of linear equations, such as:
 
 ```lisp
@@ -676,33 +672,26 @@ Make sure you handle special characters properly:
 
 (a)  The price of a radio is 69.70 dollars.
 If this price is 15% less than the marked The number of soldiers the Russians have is one half of the number of guns
-!!!(p) {:.numlist1}
 
 (b)  The number of soldiers the Russians have is one half of the number of guns they have.
 The number of guns they have is 7000.
 What is the number of soldiers they have?
-!!!(p) {:.numlist1}
 
 (c)  If the number of customers Tom gets is twice the square of 20 % of the number of advertisements he runs, and the number of advertisements is 45, and the profit Tom receives is 10 times the number of customers he gets, then what is the profit?
-!!!(p) {:.numlist1}
 
 (d)  The average score is 73.
 The maximum score is 97.
 What is the square of the difference between the average and the maximum?
-!!!(p) {:.numlist1}
 
 (e)  Tom is twice Mary's age, and Jane's age is half the difference between Mary and Tom.
 If Mary is 18 years old, how old is Jane?
-!!!(p) {:.numlist1}
 
 (f)  What is 4  +  5* 14/7?
-!!!(p) {:.numlist1}
 
 (g)  *x  x  b  =  c  +  d.
 b  x  c  =  x.
 x  =  b  +  b.
 b  =  5.*
-!!!(p) {:.numlist1}
 
 **Exercise  7.7 [h]**`Student's` infix-to-prefix rules account for the priority of operators properly, but they don't handle associativity in the standard fashion.
 For example, `(12 - 6 - 3)` translates to `(- 12 (- 6 3))` or `9`, when the usual convention is to interpret this as `(- (- 12 6) 3)` or `3`.
@@ -718,8 +707,6 @@ Write the necessary `*student-rules*`, and test the resulting program.
 Generate a similar characterization for this version of the program.
 
 ## 7.6 Answers
-{:#s0035}
- 
 
 **Answer 7.1**
 
@@ -741,11 +728,11 @@ For example, consider the equation:
 `(= (+ (+`  x  `2) (+  3 4)) (+ (+  5 6) (+  7 8)))`
 
 To decide if this has one unknown, `one-unknown` will call `no-unknown` on the left-hand side, and since it fails, call it again on the right-hand side.
-Although there are only eight atoms to consider, it ends up calling `no-unknown 17` times and `one-unknown 4` times.
+Although there are only eight atoms to consider, it ends up calling `no-unknown` 17 times and `one-unknown` 4 times.
 In general, for a tree of depth *n*, approximately 2*n* calls to `no-unknown` are made.
 This is clearly wasteful; there should be no need to look at each component more than once.
 
-The following version uses an auxiliary function, `find-one-unknown,` that has an accumulator parameter, `unknown.` This parameter can take on three possible values: nil, indicating that no unknown has been found; or the single unknown that has been found so far; or the number 2 indicating that two unknowns have been found and therefore the final result should be nil.
+The following version uses an auxiliary function, `find-one-unknown`, that has an accumulator parameter, `unknown`. This parameter can take on three possible values: nil, indicating that no unknown has been found; or the single unknown that has been found so far; or the number 2 indicating that two unknowns have been found and therefore the final result should be nil.
 The function `find-one-unknown` has four cases: (1) If we have already found two unknowns, then return 2 to indicate this.
 (2) If the input expression is a nonatomic expression, then first look at its left-hand side for unknowns, and pass the result found in that side as the accumulator to a search of the right-hand side.
 (3) If the expression is an unknown, and if it is the second one found, return `2`; otherwise return the unknown itself.
@@ -760,6 +747,7 @@ The function `find-one-unknown` has four cases: (1) If we have already found two
         (if (eql answer 2)
               nil
               answer)))
+			  
 (defun find-one-unknown (exp unknown)
     "Assuming UNKNOWN is the unknown(s) found so far, decide
     if there is exactly one unknown in the entire expression."
@@ -779,4 +767,3 @@ The function `find-one-unknown` has four cases: (1) If we have already found two
 
 [1](#xfn0015)[Page 316](B9780080571157500108.xhtml#p316) of *Common Lisp the Language* says, "Because a constructor of this type operates By Order of Arguments, it is sometimes known as a BOA constructor."
 !!!(p) {:.ftnote1}
-
