@@ -766,4 +766,3 @@ The function `find-one-unknown` has four cases: (1) If we have already found two
 ----------------------
 
 [1](#xfn0015)[Page 316](B9780080571157500108.xhtml#p316) of *Common Lisp the Language* says, "Because a constructor of this type operates By Order of Arguments, it is sometimes known as a BOA constructor."
-!!!(p) {:.ftnote1}
