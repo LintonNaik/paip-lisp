@@ -295,7 +295,7 @@ Both of these approaches rely on the fact that `defun` returns the name of the f
 
 | []() |             |            |          |                |
 |------|-------------|------------|----------|----------------|
-| *n*  | `(fib *n*)` | unmemoized | memoized | memoized up to |
+| *n*  | `(fib n)`   | unmemoized | memoized | memoized up to |
 | 25   | 121393      | 1.1        | .010     | 0              |
 | 26   | 196418      | 1.8        | .001     | 25             |
 | 27   | 317811      | 2.9        | .001     | 26             |
@@ -563,21 +563,19 @@ F1
 > (defun f2 (n l) (* n n)) =>F2
 > (disassemble 'fl)
 
-| []()       |             |
-|------------|-------------|
-| `6 PUSH`   | `ARGIO ; N` |
-| `7 MOVEM`  | `PDL-PUSH`  |
-| `8 *`      | `PDL-POP`   |
-| `9 RETURN` | `PDL-POP`   |
+
+ 6 PUSH    ARG|0 ; N 
+ 7 MOVEM   PDL-PUSH  
+ 8 *       PDL-POP   
+ 9 RETURN  PDL-POP   
 
 Fl
 > (disassemble 'f2)
-| []()       |            |
-|------------|------------|
-| `6 PUSH`   | `ARGO ; N` |
-| `7 MOVEM`  | `PDL-PUSH` |
-| `8 *`      | `PDL-POP`  |
-| `9 RETURN` | `PDL-POP`  |
+
+ 6 PUSH    ARG|0 ; N 
+ 7 MOVEM   PDL-PUSH 
+ 8 *       PDL-POP  
+ 9 RETURN  PDL-POP  
 
 F2
 ```
