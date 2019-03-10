@@ -125,8 +125,6 @@ The techniques outlined here result in a 130-fold speed-up in this program.
 [Chapter 10](B9780080571157500108.xhtml) concentrates on lower-level "tricks" for improving efficiency further.
 
 ## 9.1 Caching Results of Previous Computations: Memoization
-{:#s0010}
-{:.h1hd}
 
 We start with a simple mathematical function to demonstrate the advantages of caching techniques.
 Later we will demonstrate more complex examples.
@@ -136,16 +134,14 @@ The most straightforward function to compute the nth number in this sequence is 
 
 ```lisp
 (defun fib (n)
+"Compute the nth number in the Fibonacci sequence."
+  (if (<= n 1) 
+      1
+      (+ (fib (- n 1)) (fib (- n 2)))))
 ```
 
-    `"Compute the nth number in the Fibonacci sequence."`
-
-  `(if (<= n 1) 1`
-
-      `(+ (fib (- n 1)) (fib (- n 2)))))`
-
 The problem with this function is that it computes the same thing over and over again.
-To compute (`fib 5`) means computing (`fib 4`) and (`fib 3`), but (`fib 4`) also requires (`fib 3`), they both require (`fib 2`), and so on.
+To compute `(fib 5)` means computing `(fib 4)` and `(fib 3)`, but `(fib 4)` also requires `(fib 3)`, they both require `(fib 2)`, and so on.
 There are ways to rewrite the function to do less computation, but wouldn't it be nice to write the function as is, and have it automatically avoid redundant computation?
 Amazingly, there is a way to do just that.
 The idea is to use the function `fib` to build a new function that remembers previously computed results and uses them, rather than recompute them.
@@ -153,173 +149,109 @@ This process is called *memoization*.
 The function `memo` below is a higher-order function that takes a function as input and returns a new function that will compute the same results, but not do the same computation twice.
 
 ```lisp
-(defun memo (fn)
+(defun memo (fn &key (key #'first) (test #'eql) name)
+  "Return a memo-function of fn."
+  (let ((table (make-hash-table :test test)))
+    (setf (get name 'memo) table)
+    #'(lambda (&rest args)
+        (let ((k (funcall key args)))
+          (multiple-value-bind (val found-p)
+              (gethash k table)
+            (if found-p val
+                (setf (gethash k table) (apply fn args))))))))
 ```
 
-      `"Return a memo-function of fn."`
-
-      `(let ((table (make-hash-table)))`
-
-          `#'(lambda (x)`
-
-                  `(multiple-value-bind (val found-p)`
-
-                      `(gethash x table)`
-
-              `(if found-p`
-
-                            `val`
-
-                            `(setf (gethash x table) (funcall fn x)))))))`
-
-The expression (`memo #'fib`) will produce a function that remembers its results between calls, so that, for example, if we apply it to 3 twice, the first call will do the computation of (`fib 3`), but the second will just look up the result in a hash table.
+The expression `(memo #'fib)` will produce a function that remembers its results between calls, so that, for example, if we apply it to 3 twice, the first call will do the computation of `(fib 3)`, but the second will just look up the result in a hash table.
 With `fib` traced, it would look like this:
 
 ```lisp
 > (setf memo-fib (memo #'fib)) => #  <  CLOSURE -  67300731  >
 > (funcall memo-fib 3) =>
 (1 ENTER FIB: 3)
-```
-
-    `(2 ENTER FIB: 2)`
-
-          `(3 ENTER FIB: 1)`
-
-          `(3 EXIT FIB: 1)`
-
-          `(3 ENTER FIB: 0)`
-
-          `(3 EXIT FIB: 1)`
-
-    `(2 EXIT FIB: 2)`
-
-    `(2 ENTER FIB: 1)`
-
-    `(2 EXIT FIB: 1)`
-
-```lisp
+    (2 ENTER FIB: 2)
+          (3 ENTER FIB: 1)
+          (3 EXIT FIB: 1)
+          (3 ENTER FIB: 0)
+          (3 EXIT FIB: 1)
+    (2 EXIT FIB: 2)
+    (2 ENTER FIB: 1)
+    (2 EXIT FIB: 1)
 (1 EXIT FIB: 3)
 3
-> (funcall memo-fib 3) =  >  3
+> (funcall memo-fib 3) =>  3
 ```
 
 The second time we call `memo-fib` with 3 as the argument, the answer is just retrieved rather than recomputed.
-But the problem is that during the computation of (`fib 3`), we still compute (`fib 2`) multiple times.
+But the problem is that during the computation of `(fib 3)`, we still compute `(fib 2)` multiple times.
 It would be better if even the internal, recursive calls were memoized, but they are calls to fib, which is unchanged, not to `memo-fib`.
 We can solve this problem easily enough with the function `memoize`:
 
 ```lisp
 (defun memoize (fn-name)
+      "Replace fn-name's global definition with a memoized version."
+      (setf (symbol-function fn-name) (memo (symbol-function fn-name))))
 ```
-
-      `"Replace fn-name's global definition with a memoized version."`
-
-      `(setf (symbol-function fn-name) (memo (symbol-function fn-name))))`
 
 When passed a symbol that names a function, `memoize` changes the global definition of the function to a memo-function.
 Thus, any recursive calls will go first to the memo-function, rather than to the original function.
 This is just what we want.
 In the following, we contrast the memoized and unmemoized versions of `fib`.
-First, a call to (`fib 5`) with `fib` traced:
+First, a call to `(fib 5)` with `fib` traced:
 
 ```lisp
 > (fib 5) =>
 (1 ENTER FIB: 5)
-```
-
-      `(2 ENTER FIB: 4)`
-
-            `(3 ENTER FIB: 3)`
-
-                  `(4 ENTER FIB: 2)`
-
-                          `(5 ENTER FIB: 1)`
-
-                          `(5 EXIT FIB: 1)`
-
-                          `(5 ENTER FIB: 0)`
-
-                          `(5 EXIT FIB: 1)`
-
-                  `(4 EXIT FIB: 2)`
-
-                  `(4 ENTER FIB: 1)`
-
-                  `(4 EXIT FIB: 1)`
-
-            `(3 EXIT FIB: 3)`
-
-            `(3 ENTER FIB: 2)`
-
-                  `(4 ENTER FIB: 1)`
-
-                  `(4 EXIT FIB: 1)`
-
-                  `(4 ENTER FIB: 0)`
-
-                  `(4 EXIT FIB: 1)`
-
-            `(3 EXIT FIB: 2)`
-
-      `(2 EXIT FIB: 5)`
-
-      `(2 ENTER FIB: 3)`
-
-            `(3 ENTER FIB: 2)`
-
-                  `(4 ENTER FIB: 1)`
-
-                  `(4 EXIT FIB: 1)`
-
-                  `(4 ENTER FIB: 0)`
-
-                  `(4 EXIT FIB: 1)`
-
-            `(3 EXIT FIB: 2)`
-
-            `(3 ENTER FIB: 1)`
-
-            `(3 EXIT FIB: 1)`
-
-      `(2 EXIT FIB: 3)`
-
-```lisp
+      (2 ENTER FIB: 4)
+            (3 ENTER FIB: 3)
+                  (4 ENTER FIB: 2)
+                          (5 ENTER FIB: 1)
+                          (5 EXIT FIB: 1)
+                          (5 ENTER FIB: 0)
+                          (5 EXIT FIB: 1)
+                  (4 EXIT FIB: 2)
+                  (4 ENTER FIB: 1)
+                  (4 EXIT FIB: 1)
+            (3 EXIT FIB: 3)
+            (3 ENTER FIB: 2)
+                  (4 ENTER FIB: 1)
+                  (4 EXIT FIB: 1)
+                  (4 ENTER FIB: 0)
+                  (4 EXIT FIB: 1)
+            (3 EXIT FIB: 2)
+      (2 EXIT FIB: 5)
+      (2 ENTER FIB: 3)
+            (3 ENTER FIB: 2)
+                  (4 ENTER FIB: 1)
+                  (4 EXIT FIB: 1)
+                  (4 ENTER FIB: 0)
+                  (4 EXIT FIB: 1)
+            (3 EXIT FIB: 2)
+            (3 ENTER FIB: 1)
+            (3 EXIT FIB: 1)
+      (2 EXIT FIB: 3)
 (1 EXIT FIB: 8)
 8
 ```
 
-We see that (`fib 5`) and (`fib 4`) are each computed once, but (`fib 3`) is computed twice, (`fib 2`) three times,and (`fib 1`) five times.
-Below we call (`memoize 'fib`) and repeat the calculation.
+We see that `(fib 5)` and `(fib 4)` are each computed once, but `(fib 3)` is computed twice, `(fib 2)` three times,and `(fib 1)` five times.
+Below we call `(memoize 'fib)` and repeat the calculation.
 This time, each computation is done only once.
-Furthermore, when the computation of (`fib 5`) is repeated, the answer is returned immediately with no intermediate computation, and a further call to (`fib 6`) can make use of the value of (`fib 5`).
+Furthermore, when the computation of `(fib 5)` is repeated, the answer is returned immediately with no intermediate computation, and a further call to `(fib 6)` can make use of the value of `(fib 5)`.
 
 ```lisp
 > (memoize 'fib) => #  <  CLOSURE 76626607  >
 > (fib 5) =>
 (1 ENTER FIB: 5)
-```
-
-    `(2 ENTER FIB: 4)`
-
-          `(3 ENTER FIB: 3)`
-
-                `(4 ENTER FIB: 2)`
-
-                      `(5 ENTER FIB: 1)`
-
-                      `(5 EXIT FIB: 1)`
-
-                      `(5 ENTER FIB: 0)`
-
-                      `(5 EXIT FIB: 1)`
-
-                `(4 EXIT FIB: 2)`
-
-          `(3 EXIT FIB: 3)`
-
-    `(2 EXIT FIB: 5)`
-
-```lisp
+    (2 ENTER FIB: 4)
+          (3 ENTER FIB: 3)
+                (4 ENTER FIB: 2)
+                      (5 ENTER FIB: 1)
+                      (5 EXIT FIB: 1)
+                      (5 ENTER FIB: 0)
+                      (5 EXIT FIB: 1)
+                (4 EXIT FIB: 2)
+          (3 EXIT FIB: 3)
+    (2 EXIT FIB: 5)
 (1 EXIT FIB: 8)
 8
 > (fib 5)   =>  8
@@ -330,39 +262,33 @@ Furthermore, when the computation of (`fib 5`) is repeated, the answer is return
 ```
 
 Understanding why this works requires a clear understanding of the distinction between functions and function names.
-The original (`defun fib ...`) form does two things: builds a function and stores it as the `symbol - function` value of `fib`.
+The original `(defun fib ...)` form does two things: builds a function and stores it as the `symbol - function` value of `fib`.
 Within that function there are two references to `fib`; these are compiled (or interpreted) as instructions to fetch the `symbol - function` of `fib` and apply it to the argument.
 
 What `memoize` does is fetch the original function and transform it with `memo` to a function that, when called, will first look in the table to see if the answer is already known.
 If not, the original function is called, and a new value is placed in the table.
-The trick is that `memoize` takes this new function and makes it the `symbol - function` value of the function name.
+The trick is that `memoize` takes this new function and makes it the `symbol-function` value of the function name.
 This means that all the references in the original function will now go to the new function, and the table will be properly checked on each recursive call.
-One further complication to `memo:` the function `gethash` returns both the value found in the table and an indicator of whether the key was present or not.
+One further complication to `memo`: the function `gethash` returns both the value found in the table and an indicator of whether the key was present or not.
 We use `multiple-value-bind` to capture both values, so that we can distinguish the case when `nil` is the value of the function stored in the table from the case where there is no stored value.
 
-If you make a change to a memoized function, you need to recompile the original definition, and then redo the call to memoize.
+If you make a change to a memoized function, you need to recompile the original definition, and then redo the call to `memoize`.
 In developing your program, rather than saying `(memoize 'f)`, it might be easier to wrap appropriate definitions in a `memoize` form as follows:
 
 ```lisp
 (memoize
+ (defun f (x) ...)
+
+    )
 ```
-
-    `(defun f (x) ...)`
-
-    `)`
 
 Or define a macro that combines `defun` and `memoize`:
 
 ```lisp
 (defmacro defun-memo (fn args &body body)
-```
-
-      `"Define a memoized function."`
-
-      `'(memoize (defun ,fn ,args . ,body)))`
-
-```lisp
-(defun-memo f (x) ...)
+      "Define a memoized function."`
+      `(memoize (defun ,fn ,args . ,body)))
+> (defun-memo f (x) ...)
 ```
 
 Both of these approaches rely on the fact that `defun` returns the name of the function defined.
@@ -388,18 +314,18 @@ Both of these approaches rely on the fact that `defun` returns the name of the f
 | 1000 | 7.0e208     | -          | .001     | 1000           |
 | 1000 | 7.0e208     | -          | .876     | 0              |
 
-Now we show a table giving the values of `(fib *n*)` for certain *n*, and the time in seconds to compute the value, before and after `(memoize 'fib)`.
+Now we show a table giving the values of `(fib n)` for certain *n*, and the time in seconds to compute the value, before and after `(memoize 'fib)`.
 For larger values of *n*, approximations are shown in the table, although `fib` actually returns an exact integer.
 With the unmemoized version, I stopped at *n*  =  34, because the times were getting too long.
 For the memoized version, even *n*  =  1000 took under a second.
 
-Note there are three entries for (`fib 1000`).
-The first entry represents the incremental computation when the table contains the memoized values up to 500, the second entry shows the time for a table lookup when (`fib 1000`) is already computed, and the third entry is the time for a complete computation starting with an empty table.
+Note there are three entries for `(fib 1000)`.
+The first entry represents the incremental computation when the table contains the memoized values up to 500, the second entry shows the time for a table lookup when `(fib 1000)` is already computed, and the third entry is the time for a complete computation starting with an empty table.
 
 It should be noted that there are two general approaches to discussing the efficiency of an algorithm.
 One is to time the algorithm on representative inputs, as we did in this table.
 The other is to analyze the *asymptotic complexity* of the algorithm.
-For the `fib` problem, an asymptotic analysis considers how long it takes to compute `(fib *n*)` as *n* approaches infinity.
+For the `fib` problem, an asymptotic analysis considers how long it takes to compute `(fib n)` as *n* approaches infinity.
 The notation *O*(*f*(*n*)) is used to describe the complexity.
 For example, the memoized version `fib` is an *O*(*n*) algorithm because the computation time is bounded by some constant times *n*, for any value of *n*.
 The unmemoized version, it turns out, is *O*(1.
@@ -417,7 +343,7 @@ In many applications there are times when it would be good to clear the hash tab
 The versions of `memo` and `memoize` below handle these three problems.
 They are compatible with the previous version but add three new keywords for the extensions.
 The `name` keyword stores the hash table on the property list of that name, so it can be accessed by `clear-memoize`.
-The `test` keyword tells what kind of hash table to create: `eq, eql, or equal`.
+The `test` keyword tells what kind of hash table to create: `eq`, `eql`, or `equal`.
 Finally, the `key` keyword tells which arguments of the function to index under.
 The default is the first argument (to be compatible with the previous version), but any combination of the arguments can be used.
 If you want to use all the arguments, specify `identity` as the key.
@@ -425,49 +351,29 @@ Note that if the key is a list of arguments, then you will have to use `equal` h
 
 ```lisp
 (defun memo (fn name key test)
-```
+  "Return a memo-function of fn."
+  (let ((table (make-hash-table :test test)))
+    (setf (get name 'memo) table)
+    #'(lambda (&rest args)
+        (let ((k (funcall key args)))
+          (multiple-value-bind (val found-p)
+              (gethash k table)
+            ((if found-p val
+                (setf (gethash k table) (apply fn args))))))))
 
-      `"Return a memo-function of fn."`
-
-      `(let ((table (make-hash-table :test test)))`
-
-          `(setf (get name 'memo) table)`
-
-          `#'(lambda (&rest args)`
-
-                  `(let ((k (funcall key args)))`
-
-                          `(multiple-value-bind (val found-p)`
-
-                                `(gethash k table)`
-
-                          `(if found-p val`
-
-                                              `(setf (gethash k table) (apply fn args))))))))`
-
-```lisp
 (defun memoize (fn-name &key (key #'first) (test #'eql))
-```
+  "Replace fn-name's global definition with a memoized version."
+  (setf (symbol-function fn-name)
+  (memo (symbol-function fn-name) fn-name key test)))
 
-      `"Replace fn-name's global definition with a memoized version."`
-
-      `(setf (symbol-function fn-name)`
-
-                  `(memo (symbol-function fn-name) fn-name key test)))`
-
-```lisp
 (defun clear-memoize (fn-name)
+  "Clear the hash table from a memo function."
+  (let ((table (get fn-name 'memo)))
+    (when table (clrhash table))))
+
 ```
-
-      `"Clear the hash table from a memo function."`
-
-      `(let ((table (get fn-name 'memo)))`
-
-                  `(when table (clrhash table))))`
-
 ## 9.2 Compiling One Language into Another
-{:#s0015}
-{:.h1hd}
+
 
 In [chapter 2](B9780080571157500029.xhtml) we defined a new language-the language of grammar rules-which was processed by an interpreter designed especially for that language.
 An *interpreter* is a program that looks at some data structure representing a "program" or sequence of rules of some sort and interprets or evaluates those rules.
@@ -483,35 +389,21 @@ It makes use of the auxiliary functions `one-of` and `rule-lhs` and `rule-rhs` f
 
 ```lisp
 (defun rule-lhs (rule)
-```
+  "The left-hand side of a rule."
+  (first rule))
 
-  `"The left-hand side of a rule."`
-
-  `(first rule))`
-
-```lisp
 (defun rule-rhs (rule)
-```
+  "The right-hand side of a rule."
+  (rest (rest rule)))
 
-  `"The right-hand side of a rule."`
-
-  `(rest (rest rule)))`
-
-```lisp
 (defun one-of (set)
-```
+  "Pick one element of set, and make a list of it."
+  (list (random-elt set)))
 
-  `"Pick one element of set, and make a list of it."`
-
-  `(list (random-elt set)))`
-
-```lisp
 (defun random-elt (choices)
+  "Choose an element from a list at random."
+  (elt choices (random (length choices))))
 ```
-
-  `"Choose an element from a list at random."`
-
-  `(elt choices (random (length choices))))`
 
 The function `compile-rule` turns a rule into a function definition by building up Lisp code that implements all the actions that generate would take in interpreting the rule.
 There are three cases.
@@ -522,58 +414,31 @@ Finally, if there are several elements in the right-hand side, they are each tur
 
 ```lisp
 (defun compile-rule (rule)
-```
+  "Translate a grammar rule into a LISP function definition."
+  (let ((rhs (rule-rhs rule)))
+      `(defun ,(rule-lhs rule) ()
+        ,(cond ((every #'atom rhs) `(one-of ',rhs))
+              ((length=l rhs) (build-code (first rhs)))
+              (t `(case (random .(length rhs))
+                  ,@(build-cases 0 rhs)))))))
 
-  `"Translate a grammar rule into a LISP function definition."`
-
-  `(let ((rhs (rule-rhs rule)))`
-
-      `'(defun ,(rule-lhs rule) ()`
-
-```lisp
-        ,(cond ((every #'atom rhs) '(one-of ',rhs))
-```
-
-              `((length  =l rhs) (build-code (first rhs)))`
-
-              `(t '(case (random .(length rhs))`
-
-                  `,@(build-cases 0 rhs)))))))`
-
-```lisp
 (defun build-cases (number choices)
-```
+  "Return a list of case-clauses"
+  (when choices
+      (cons (list number (build-code (first choices)))
+            (build-cases (+ number 1) (rest choices)))))
 
-  `"Return a list of case-clauses"`
-
-  `(when choices`
-
-      `(cons (list number (build-code (first choices)))`
-
-              `(build-cases (+ number 1) (rest choices)))))`
-
-```lisp
 (defun build-code (choice)
-```
+  "Append together multiple constituents"
+  (cond ((null choice) nil)
+        ((atom choice) (list choice))
+        ((length=1 choice) choice)
+        (t `(append ,@(mapcar #'build-code choice)))))
 
-  `"Append together multiple constituents"`
-
-  `(cond ((null choice) nil)`
-
-              `((atom choice) (list choice))`
-
-              `((length=1 choice) choice)`
-
-              `(t '(append ,@(mapcar #'build-code choice)))))`
-
-```lisp
 (defun length=1 (x)
+  "Is X a list of length 1?"
+  (and (consp x) (null (rest x))))
 ```
-
-  `"Is X a list of length 1?"`
-
-  `(and (consp x) (null (rest x))))`
-
 The Lisp code built by `compile-rule` must be compiled or interpreted to make it available to the Lisp system.
 We can do that with one of the following forms.
 Normally we would want to call `compile`, but during debugging it may be easier not to.
@@ -589,23 +454,19 @@ We might implement this as follows:
 
 ```lisp
 (defmacro defrule (&rest rule)
-```
-
-    `"Define a grammar rule"`
-
-    `(compile-rule rule))`
-
-```lisp
+  "Define a grammar rule"
+  (compile-rule rule))
+  
 (defrule Sentence -> (NP VP))
 (defrule NP -> (Art Noun))
 (defrule VP -> (Verb NP))
 (defrule Art -> the a)
-(defrule Noun -> man bail woman table)
+(defrule Noun -> man ball woman table)
 (defrule Verb -> hit took saw liked)
 ```
 
 Actually, the choice of using one big list of rules (like `*grammar*`) versus using individual macros to define rules is independent of the choice of compiler versus interpreter.
-We could just as easily define defrule simply to push the rule onto `*grammar*`.
+We could just as easily define `defrule` simply to push the rule onto `*grammar*`.
 Macros like `defrule` are useful when you want to define rules in different places, perhaps in several separate files.
 The `defparameter` method is appropriate when all the rules can be defined in one place.
 
@@ -614,16 +475,11 @@ We can see the Lisp code generated by `compile-rule` in two ways: by passing it 
 ```lisp
 > (compile-rule '(Sentence -> (NP VP)))
 (DEFUN SENTENCE ()
-```
-
-      `(APPEND (NP) (VP)))`
-
-```lisp
+  (APPEND (NP) (VP)))
 > (compile-rule '(Noun -> man bail woman table))
 (DEFUN NOUN ()
+  (ONE-OF '(MAN BALL WOMAN TABLE)))
 ```
-
-      `(ONE-OF '(MAN BALL WOMAN TABLE)))`
 
 or by macroexpanding a `defrule` expression.
 The compiler was designed to produce the same code we were writing in our first approach to the generation problem (see [Page 35](B9780080571157500029.xhtml#p35)).
@@ -631,15 +487,11 @@ The compiler was designed to produce the same code we were writing in our first 
 ```lisp
 > (macroexpand '(defrule Adj* -> () Adj (Adj Adj*)))
 (DEFUN ADJ* ()
+  (CASE (RANDOM 3)
+      (0 NIL)
+      (1 (ADJ))
+      (2 (APPEND (ADJ) (ADJ*)))))
 ```
-
-  `(CASE (RANDOM 3)`
-
-      `(0 NIL)`
-
-      `(1 (ADJ))`
-
-      `(2 (APPEND (ADJ) (ADJ*)))))`
 
 Interpreters are usually easier to write than compilers, although in this case, even the compiler was not too difficult.
 Interpreters are also inherently more flexible than compilers, because they put off making decisions until the last possible moment.
@@ -650,24 +502,17 @@ This could cause problems if we extended the definition of `Noun` to include the
 ```lisp
 (defrule Noun -> man ball woman table (chow chow))
 ```
-
 The rule would expand into the following code:
 
 ```lisp
 (DEFUN NOUN ()
   (CASE (RANDOM 5)
+      (0 (MAN))
+      (1 (BALL))
+      (2 (WOMAN))
+      (3 (TABLE))
+      (4 (APPEND (CHOW) (CHOW)))))
 ```
-
-      `(0 (MAN))`
-
-      `(1 (BALL))`
-
-      `(2 (WOMAN))`
-
-      `(3 (TABLE))`
-
-      `(4 (APPEND (CHOW) (CHOW)))))`
-
 The problem is that `man` and `ball` and all the others are suddenly treated as functions, not as literal words.
 So we would get a run-time error notifying us of undefined functions.
 The equivalent rule would cause no trouble for the interpreter, which waits until it actually needs to generate a symbol to decide if it is a word or a nonterminal.
@@ -683,19 +528,11 @@ For example, it turns out that on the Common Lisp system I am currently using, I
 ```lisp
 > (defrule Noun -> man bail woman table (chow chow))
 The following functions were referenced but don't seem defined:
-```
-
-  `CHOW referenced by NOUN`
-
-  `TABLE referenced by NOUN`
-
-  `WOMAN referenced by NOUN`
-
-  `BALL referenced by NOUN`
-
-  `MAN referenced by NOUN`
-
-```lisp
+  CHOW referenced by NOUN
+  TABLE referenced by NOUN
+  WOMAN referenced by NOUN
+  BALL referenced by NOUN
+  MAN referenced by NOUN
 NOUN
 ```
 
@@ -718,19 +555,13 @@ For example, consider the following code:
 
 ```lisp
 (defun f1 (n l)
-      (let ((l1 (first l))
-                  (l2 (second l)))
-```
-
-                `(expt (* 1 (+ n 0))`
-
-              `(- 4 (length (list l1 l2))))))`
-
-```lisp
+  (let ((l1 (first l))
+       (l2 (second l)))
+     (expt (* 1 (+ n 0))
+           (- 4 (length (list l1 l2))))))
 F1
 > (defun f2 (n l) (* n n)) =>F2
 > (disassemble 'fl)
-```
 
 | []()       |             |
 |------------|-------------|
@@ -739,11 +570,8 @@ F1
 | `8 *`      | `PDL-POP`   |
 | `9 RETURN` | `PDL-POP`   |
 
-```lisp
 Fl
 > (disassemble 'f2)
-```
-
 | []()       |            |
 |------------|------------|
 | `6 PUSH`   | `ARGO ; N` |
@@ -751,7 +579,6 @@ Fl
 | `8 *`      | `PDL-POP`  |
 | `9 RETURN` | `PDL-POP`  |
 
-```lisp
 F2
 ```
 
@@ -965,7 +792,7 @@ The following definitions do not make this assumption:
       `(rest pipe)))`
 
 Everything else remains the same.
-If we recompile `integers` (because it uses the `macro make-pipe`), we see the following behavior.
+If we recompile `integers` (because it uses the `macro make-pipe)`, we see the following behavior.
 First, creation of the infinite pipe `c` is similar:
 
 ```lisp
@@ -1667,7 +1494,7 @@ and make sure the answers are correct."`
                     "Expected ~a to be equal to ~a" x y))
 ```
 
-Here are the results of (`test-it`) with and without profiling:
+Here are the results of `(test-it)` with and without profiling:
 
 ```lisp
 > (test-it nil)
@@ -1693,7 +1520,7 @@ We will look at three methods for achieving both those goals.
 {:#s0045}
 {:.h3hd}
 
-Consider the rule that transforms (`x  +  x`) into (`2 * x`).
+Consider the rule that transforms `(x  +  x)` into `(2 * x)`.
 Once this is done, we have to simplify the result, which involves resimplifying the components.
 If `x` were some complex expression, this could be time-consuming, and it will certainly be wasteful, because `x` is already simplified and cannot change.
 We have seen this type of problem before, and the solution is memoization: make `simplify` remember the work it has done, rather than repeating the work.
@@ -1706,7 +1533,7 @@ We can just say:
 Two questions are unclear: what kind of hash table to use, and whether we should clear the hash table between problems.
 The simplifier was timed for all four combinations of `eq` or `equal` hash tables and resetting or nonresetting between problems.
 The fastest result was `equal` hashing and nonresetting.
-Note that with `eq` hashing, the resetting version was faster, presumably because it couldn't take advantage of the common subexpressions between examples (since they aren't `eq`).
+Note that with `eq` hashing, the resetting version was faster, presumably because it couldn't take advantage of the common subexpressions between examples (since they aren't `eq)`.
 
 | hashing | resetting | time |
 |---------|-----------|------|
@@ -2372,7 +2199,7 @@ Is this worth it?
 {:#s0080}
 {:.h1hd}
 
-**Answer 9.4** Let *Fn* denote (`fib n`).
+**Answer 9.4** Let *Fn* denote `(fib n)`.
 Then the time to compute *Fn*, *Tn*, is a small constant for *n*  &le;  1, and is roughly equal to *Tn-1* plus *Tn-2* for larger *n*.
 Thus, *Tn* is roughly proportional to *Fn*:
 
@@ -2568,7 +2395,7 @@ A fanciful example, resurrecting a number of obsolete Lisps, follows:
 |                  | `(get-internal-real-time)))` |
 
 **Answer 9.13** Yes.
-Computing (`head pipe`) may be a trivial computation, but it will be done many times.
+Computing `(head pipe)` may be a trivial computation, but it will be done many times.
 Binding the local variable makes sure that it is only done once.
 In general, things that you expect to be done multiple times should be moved out of delayed functions, while things that may not be done at all should be moved inside a delay.
 
